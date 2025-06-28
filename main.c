@@ -10,7 +10,7 @@
 PSP_MODULE_INFO(MODULE_NAME, PSP_MODULE_KERNEL, 1, 0);
 
 static void dump_module_info(){
-	SceUID module_ids[128] = {0};
+	SceUID module_ids[64] = {0};
 	int num_module_ids = 0;	
 
 	LOG("dumping module info\n");
@@ -132,43 +132,60 @@ static void dump_module_info(){
 	}
 }
 
+u32 sctrlHENFindFunction(const char *, const char*, u32);
+
+typedef int (*module_load_function_t)(const char *, int flags, SceKernelLMOption *load_options);
+typedef int (*module_start_function_t)(SceUID modid, int args, void **argp, int *status, void *start_options);
 
 int loader_thread(SceSize args, void *argp){
+	sceKernelDelayThread(100000);
+
 	LOG("%s: begin\n", __func__);
 
-	dump_module_info();
+	module_load_function_t KernelLoadModule = (module_load_function_t)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForKernel", 0x977DE386);
+	module_start_function_t KernelStartModule = (module_start_function_t)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForKernel", 0x50F0C1EC);
 
-	char modpath[128] = {0};
+	LOG("%s: KernelLoadModule 0x%x\n", __func__, KernelLoadModule);
+	LOG("%s: KernelStartModule 0x%x\n", __func__, KernelStartModule);
+
+
+	char modpath[64] = {0};
 	sprintf(modpath, "ms0:/seplugins/%s", MODULE_NAME "_target.prx");
 	int testfd = sceIoOpen(modpath, PSP_O_RDONLY, 0777);
 	if (testfd < 0){
-		LOG("%s: failed opening %s\n", __func__, modpath);
+		LOG("%s: failed opening %s, 0x%x\n", __func__, modpath, testfd);
 		sprintf(modpath, "ef0:/seplugins/%s", MODULE_NAME "_target.prx");
 		if (testfd < 0){
-			LOG("%s: failed opening %s\n", __func__, modpath);
+			LOG("%s: failed opening %s, 0x%x\n", __func__, modpath, testfd);
+			dump_module_info();
 			return 0;
 		}
 	}
 
 	sceIoClose(testfd);
 
-	int load_status = sceKernelLoadModule(modpath, 0, NULL);
+	int load_status = KernelLoadModule(modpath, 0, NULL);
 	if (load_status < 0){
 		LOG("%s: failed loading %s, 0x%x\n", __func__, modpath, load_status);
+		dump_module_info();
 		return 0;
 	}
 
+	sceKernelDelayThread(100000);
+
 	int status;
-	int start_status = sceKernelStartModule(load_status, 0, NULL, &status, NULL);
+	int start_status = KernelStartModule(load_status, 0, NULL, &status, NULL);
 
 	if (start_status < 0){
 		LOG("%s: failed starting %s, 0x%x\n", __func__, modpath, start_status);
+		dump_module_info();
 		return 0;
 	}
 	LOG("%s: module %s loaded and started\n", __func__, modpath);
 
-	dump_module_info();
+	sceKernelDelayThread(100000);
 
+	dump_module_info();
 	return 0;
 }
 

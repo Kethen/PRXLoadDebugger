@@ -1,7 +1,7 @@
 TARGET  = LoadDebugger
 
 
-OBJS    = main.o logging.o
+OBJS    = main.o logging.o hen.o
 LIBS    =
 CFLAGS  = -O0 -G0 -Wall -fno-builtin-printf $(CFLAGS_EXTRA)
 ASFLAGS = $(CFLAGS)
